@@ -1,0 +1,172 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="pl">
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+    <title>Document</title>
+    <script async src="opencv.js" onload="loadOpenCv()"></script>
+    <style>
+        .buttonToControll{
+            width: 100px;
+            height: 100px;
+        }
+    </style>
+</head>
+<body>
+<h1>Hello</h1>
+<canvas id="videoCanvas" width="400" height="400"></canvas>
+<canvas id="imgBazowyCanvas"></canvas>
+<video autoplay style="width: 400px; height: 400px"
+></video>
+<!--<canvas id="imgPhotoCanvas" width="500" height="500"></canvas>-->
+<canvas id="imageCompareMatches" width="500" height="500"></canvas>
+
+<h1 class="resoult">none</h1>
+<div class="devicesList">device list</div>
+
+<button type="submit">click me</button>
+</body>
+<script>
+
+    const serachTheSimialInPhotos = () => {
+        let img1 = cv.imread('imgBazowyCanvas');
+        let img2 = cv.imread('videoCanvas');
+
+        let img1Gray = new cv.Mat();
+        let img2Gray = new cv.Mat();
+
+        cv.cvtColor(img1, img1Gray, cv.COLOR_BGRA2GRAY);
+        cv.cvtColor(img2, img2Gray, cv.COLOR_BGRA2GRAY);
+
+        let keypoints1 = new cv.KeyPointVector();
+        let keypoints2 = new cv.KeyPointVector();
+
+        let descriptors1 = new cv.Mat();
+        let descriptors2 = new cv.Mat();
+
+        let orb = new cv.AKAZE();
+
+        orb.detectAndCompute(img1Gray, new cv.Mat(), keypoints1, descriptors1);
+        orb.detectAndCompute(img2Gray, new cv.Mat(), keypoints2, descriptors2);
+
+        let good_matches = new cv.DMatchVector();
+        let bf = new cv.BFMatcher();
+        let matches = new cv.DMatchVectorVector();
+
+        bf.knnMatch(descriptors1, descriptors2, matches, 2);
+
+        const knnDistance_option = 0.7;
+
+        let sumOfGoodMathes = 0;
+
+        let counter = 0;
+        for (let i = 0; i < matches.size(); ++i) {
+            let match = matches.get(i);
+            let dMatch1 = match.get(0);
+            let dMatch2 = match.get(1);
+            // console.log("[", i, "] ", "dMatch1: ", dMatch1, "dMatch2: ", dMatch2);
+            if (dMatch1.distance <= dMatch2.distance * parseFloat(knnDistance_option)) {
+                // console.log("***Good Match***", "dMatch1.distance: ", dMatch1.distance, "was less than or = to: ", "dMatch2.distance * parseFloat(knnDistance_option)", dMatch2.distance * parseFloat(knnDistance_option), "dMatch2.distance: ", dMatch2.distance, "knnDistance", knnDistance_option);
+                good_matches.push_back(dMatch1);
+                sumOfGoodMathes++;
+                counter++;
+            }
+        }
+
+        const resoultHTML = document.querySelector('.resoult');
+        resoultHTML.innerHTML = counter;
+
+        let imMatches = new cv.Mat();
+        let color = new cv.Scalar(0,255,0, 255);
+        cv.drawMatches(img1, keypoints1, img2, keypoints2,
+            good_matches, imMatches, color);
+        cv.imshow('imageCompareMatches', imMatches);
+    }
+
+    const loadOpenCv = () => {
+        const videoCanvas = document.getElementById('videoCanvas');
+        const videoHTML = document.querySelector('video')
+
+        const videoContext = videoCanvas.getContext('2d');
+
+        // navigator.mediaDevices.getUserMedia({video: true}).then(stream => {
+        //     videoHTML.srcObject = stream
+        // })
+
+        const devicesListHTML = document.querySelector('.devicesList')
+
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+            devices.forEach(device => {
+                if(device.kind === 'videoinput'){
+                    const pElement = document.createElement('button');
+                    pElement.classList.add('buttonToControll')
+                    pElement.innerHTML = device.label;
+                    pElement.addEventListener('click',() => {
+                        goViedeo(device.deviceId)
+                    });
+
+                    devicesListHTML.appendChild(pElement);
+                    console.log(device)
+                }
+            });
+        })
+
+
+        
+        const goViedeo = (id) => {
+            navigator.mediaDevices.getUserMedia({video: {
+                deviceId: id,
+            }}).then(stream => {
+                videoHTML.srcObject = stream;
+            }).catch(err => {
+                alert(err)
+            })
+        }
+        
+        goViedeo();
+
+        videoHTML.addEventListener('play', function(){
+            drawVideo(this)
+        })
+
+        const drawVideo = (video) => {
+            videoContext.drawImage(video, 0, 0, 400, 200)
+            setTimeout(() => drawVideo(video), 0)
+        }
+
+        // part 2
+
+        let canvasBazowyImg = document.getElementById('imgBazowyCanvas')
+
+        // let baseImg = new Image();
+        // baseImg.src = './images/catBazowy.png';
+        // baseImg.onload = () => {
+        //     canvasBazowyImg.getContext('2d').drawImage(baseImg, 0, 0);
+        //     setInterval(() => {
+        //         serachTheSimialInPhotos();
+        //     }, 500)
+        // }
+
+        // not potrzebne
+
+        // const button = document.querySelector('button')
+
+        // button.addEventListener('click', () => {
+        //     console.log('clicked!')
+
+        //     // let imMatches = new cv.Mat();
+        //     // let color = new cv.Scalar(0,255,0, 255);
+        //     // cv.drawMatches(img1, keypoints1, img2, keypoints2,
+        //     //     good_matches, imMatches, color);
+        //     // cv.imshow('imageCompareMatches', imMatches);
+        //     //
+        //     // console.log(good_matches)
+        //     // console.log(sumOfGoodMathes)
+
+        //     // pokazanie każdego obrazu tylko z kluczowymi punktami
+
+        //     // cv.drawKeypoints(im1Gray, keypoints1, keypoints1_img, keypointcolor);
+        //     // cv.drawKeypoints(im2Gray, keypoints2, keypoints2_img, keypointcolor);
+        // })
+    }
+</script>
+</html>

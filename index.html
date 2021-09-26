@@ -1,0 +1,103 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="pl">
+<head>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+    <title>Document</title>
+    <script async src="opencv.js" onload="loadOpenCv()"></script>
+</head>
+<body>
+    <h1>Hello</h1>
+    <canvas id="imgBazowyCanvas"></canvas>
+    <canvas id="imgPhotoCanvas" width="500" height="500"></canvas>
+    <canvas id="imageCompareMatches" width="500" height="500"></canvas>
+    <button type="submit">click me</button>
+</body>
+<script>
+    const loadOpenCv = () => {
+
+        let canvasBazowyImg = document.getElementById('imgBazowyCanvas')
+        let canvasPhotoImg = document.getElementById('imgPhotoCanvas')
+
+        let baseImg = new Image();
+        baseImg.src = './images/catBazowy.png';
+        baseImg.onload = () => {
+            canvasBazowyImg.getContext('2d').drawImage(baseImg, 0, 0);
+        }
+
+        let baseImg2 = new Image();
+        baseImg2.src = './images/catPhoto.png';
+        baseImg2.onload = () => {
+            canvasPhotoImg.getContext('2d').drawImage(baseImg2, 0, 0, 500, 500)
+        }
+
+
+        const button = document.querySelector('button')
+
+        button.addEventListener('click', () => {
+            console.log('clicked!')
+            let img1 = cv.imread('imgBazowyCanvas');
+            let img2 = cv.imread('imgPhotoCanvas');
+
+            let img1Gray = new cv.Mat();
+            let img2Gray = new cv.Mat();
+
+            cv.cvtColor(img1, img1Gray, cv.COLOR_BGRA2GRAY);
+            cv.cvtColor(img2, img2Gray, cv.COLOR_BGRA2GRAY);
+
+            let keypoints1 = new cv.KeyPointVector();
+            let keypoints2 = new cv.KeyPointVector();
+
+            let descriptors1 = new cv.Mat();
+            let descriptors2 = new cv.Mat();
+
+            let orb = new cv.AKAZE();
+
+            orb.detectAndCompute(img1Gray, new cv.Mat(), keypoints1, descriptors1);
+            orb.detectAndCompute(img2Gray, new cv.Mat(), keypoints2, descriptors2);
+
+            let good_matches = new cv.DMatchVector();
+            let bf = new cv.BFMatcher();
+            let matches = new cv.DMatchVectorVector();
+
+            bf.knnMatch(descriptors1, descriptors2, matches, 2);
+
+            const knnDistance_option = 0.7;
+
+            let sumOfGoodMathes = 0;
+
+            let counter = 0;
+            for (let i = 0; i < matches.size(); ++i) {
+                let match = matches.get(i);
+                let dMatch1 = match.get(0);
+                let dMatch2 = match.get(1);
+                // console.log("[", i, "] ", "dMatch1: ", dMatch1, "dMatch2: ", dMatch2);
+                if (dMatch1.distance <= dMatch2.distance * parseFloat(knnDistance_option)) {
+                    // console.log("***Good Match***", "dMatch1.distance: ", dMatch1.distance, "was less than or = to: ", "dMatch2.distance * parseFloat(knnDistance_option)", dMatch2.distance * parseFloat(knnDistance_option), "dMatch2.distance: ", dMatch2.distance, "knnDistance", knnDistance_option);
+                    good_matches.push_back(dMatch1);
+                    sumOfGoodMathes++;
+                    counter++;
+                }
+            }
+
+
+
+            let imMatches = new cv.Mat();
+            let color = new cv.Scalar(0,255,0, 255);
+            cv.drawMatches(img1, keypoints1, img2, keypoints2,
+                good_matches, imMatches, color);
+            cv.imshow('imageCompareMatches', imMatches);
+
+            console.log(good_matches)
+            console.log(sumOfGoodMathes)
+
+            // pokazanie każdego obrazu tylko z kluczowymi punktami
+
+            // cv.drawKeypoints(im1Gray, keypoints1, keypoints1_img, keypointcolor);
+            // cv.drawKeypoints(im2Gray, keypoints2, keypoints2_img, keypointcolor);
+        })
+
+
+
+    }
+</script>
+</html>
